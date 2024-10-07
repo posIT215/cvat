@@ -9,6 +9,7 @@ import {
     Webhook, MLModel, ModelProvider, Organization, QualityReport, QualityConflict, QualitySettings, FramesMetaData,
 } from 'cvat-core-wrapper';
 import { IntelligentScissors } from 'utils/opencv-wrapper/intelligent-scissors';
+import { BoxFitting } from 'utils/opencv-wrapper/box-fitting';
 import { KeyMap } from 'utils/mousetrap-react';
 import { OpenCVTracker } from 'utils/opencv-wrapper/opencv-interfaces';
 
@@ -361,7 +362,7 @@ export interface ModelsQuery {
     sort: string | null;
 }
 
-export type OpenCVTool = IntelligentScissors | OpenCVTracker;
+export type OpenCVTool = IntelligentScissors | BoxFitting | OpenCVTracker;
 
 export interface ToolsBlockerState {
     algorithmsLocked?: boolean;
@@ -612,6 +613,7 @@ export enum ActiveControl {
     AI_TOOLS = 'ai_tools',
     PHOTO_CONTEXT = 'PHOTO_CONTEXT',
     OPENCV_TOOLS = 'opencv_tools',
+    FIT_RECTANGLE = 'fit_rectangle',
 }
 
 export enum ShapeType {

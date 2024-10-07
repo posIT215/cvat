@@ -39,6 +39,7 @@ import ApproximationAccuracy, {
 import { ImageProcessing, OpenCVTracker, TrackerModel } from 'utils/opencv-wrapper/opencv-interfaces';
 import { switchToolsBlockerState } from 'actions/settings-actions';
 import withVisibilityHandling from './handle-popover-visibility';
+import BoxFittingImplementation, { BoxFitting } from 'utils/opencv-wrapper/box-fitting';
 
 interface Props {
     labels: any[];
@@ -135,7 +136,7 @@ const mapDispatchToProps = {
 };
 
 class OpenCVControlComponent extends React.PureComponent<Props & DispatchToProps, State> {
-    private activeTool: IntelligentScissors | null;
+    private activeTool: IntelligentScissors | BoxFitting | null;
     private latestPoints: number[];
     private canvasForceUpdateWasEnabled: boolean;
 
@@ -215,13 +216,66 @@ class OpenCVControlComponent extends React.PureComponent<Props & DispatchToProps
 
     private interactionListener = async (e: Event): Promise<void> => {
         const { mode } = this.state;
-
         if (mode === 'interaction') {
             await this.onInteraction(e);
         }
 
         if (mode === 'tracking') {
             await this.onTracking(e);
+        }
+
+        if (mode === 'fitting'){
+            await this.onFitting(e);
+        }
+    };
+
+    private onFitting = async (e: Event): Promise<void> => {
+        console.log('onFiting : ' , this.state);
+        const { approxPolyAccuracy } = this.state;
+        const {
+            createAnnotations, isActivated, jobInstance, frame, labels, curZOrder, canvasInstance,
+        } = this.props;
+        const { activeLabelID } = this.state;
+
+        if (!isActivated) {
+            return;
+        }
+
+        let { isDone, shapes } = (e as CustomEvent).detail;
+        let pressedPoints = convertShapesForInteractor(shapes, 0).flat();
+        if (isDone) {
+            // We will assume that the first two points from the pressedPoints are the top-left and bottom-right
+            // corners of the rectangle, respectively.
+            if (pressedPoints.length >= 4) {
+                let [x1, y1, x2, y2] = pressedPoints.slice(0, 4);
+
+                // Constructing a rectangle using the given points
+                let rectanglePoints = [x1, y1, x2, y2];
+                // const rectanglePoints = [x1, y1, x2, y1, x2, y2, x1, y2];
+
+                let finalObject = new core.classes.ObjectState({
+                    frame,
+                    objectType: ObjectType.SHAPE,
+                    shapeType: ShapeType.RECTANGLE,
+                    source: core.enums.Source.SEMI_AUTO,
+                    label: labels.filter((label: any) => label.id === activeLabelID)[0],
+                    points: openCVWrapper.contours.fitting(
+                        rectanglePoints,
+                        thresholdFromAccuracy(approxPolyAccuracy),
+                        this.getCanvasImageData(),
+                        false,
+                    ),
+                    occluded: false,
+                    zOrder: curZOrder,
+                });
+                createAnnotations(jobInstance, frame, [finalObject]);
+                const test = openCVWrapper.contours.fitting(
+                    rectanglePoints,
+                    thresholdFromAccuracy(approxPolyAccuracy),
+                    this.getCanvasImageData(),
+                    false,
+                );
+            }
         }
     };
 
@@ -654,7 +708,7 @@ class OpenCVControlComponent extends React.PureComponent<Props & DispatchToProps
                             <Button
                                 className='cvat-opencv-scissors-tool-button'
                                 onClick={() => {
-                                    this.setState({ mode: 'interaction' });
+                                    this.setState({ mode: 'none' });
                                     this.activeTool = openCVWrapper.segmentation
                                         .intelligentScissorsFactory(this.onChangeToolsBlockerState);
                                     canvasInstance.cancel();
@@ -673,6 +727,53 @@ class OpenCVControlComponent extends React.PureComponent<Props & DispatchToProps
             </>
         );
     }
+
+    private renderFittingContent(): JSX.Element {
+        const { activeLabelID } = this.state;
+        const { labels, canvasInstance, onInteractionStart } = this.props;
+
+        return (
+            <>
+                <Row justify='center'>
+                    <Col span={24}>
+                        <LabelSelector
+                            style={{ width: '100%' }}
+                            labels={labels}
+                            value={activeLabelID}
+                            onChange={(label: any) => this.setState({ activeLabelID: label.id })}
+                        />
+                    </Col>
+                </Row>
+                <Row justify='start' className='cvat-opencv-drawing-tools'>
+                    <Col>
+                        <CVATTooltip title='Intelligent scissors' className='cvat-opencv-drawing-tool'>
+                            <Button
+                                className='cvat-opencv-scissors-tool-button'
+                                onClick={() => {
+                                    this.setState({ mode: 'fitting' });
+                                    canvasInstance.cancel();
+                                    canvasInstance.interact({
+                                        shapeType :'rectangle',
+                                        enabled: true,
+                                    });
+                                    this.activeTool = openCVWrapper.fitting
+                                        .boxFittingFactory(this.onChangeToolsBlockerState);
+                                    console.log(this);
+                                    console.log(canvasInstance);
+                                    onInteractionStart(this.activeTool, activeLabelID);
+                                    const { onSwitchToolsBlockerState } = this.props;
+                                    onSwitchToolsBlockerState({ buttonVisible: false });
+                                }}
+                            >
+                                <ScissorOutlined />
+                            </Button>
+                        </CVATTooltip>
+                    </Col>
+                </Row>
+            </>
+        );
+    }
+
 
     private renderImageContent():JSX.Element {
         return (
@@ -815,6 +916,9 @@ class OpenCVControlComponent extends React.PureComponent<Props & DispatchToProps
                         <Tabs.TabPane key='tracking' tab='Tracking' className='cvat-opencv-control-tabpane'>
                             {this.renderTrackingContent()}
                         </Tabs.TabPane>
+                        <Tabs.TabPane key='fitting' tab='Fitting' className='cvat-opencv-control-tabpane'>
+                            {this.renderFittingContent()}
+                        </Tabs.TabPane>
                     </Tabs>
                 ) : (
                     <>
@@ -911,3 +1015,5 @@ class OpenCVControlComponent extends React.PureComponent<Props & DispatchToProps
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(OpenCVControlComponent);
+
+

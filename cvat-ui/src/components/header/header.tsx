@@ -253,7 +253,7 @@ function HeaderContainer(props: Props): JSX.Element {
     const plugins = usePlugins((state: CombinedState) => state.plugins.components.header.userMenu.items, props);
 
     const menuItems: [JSX.Element, number][] = [];
-    if (user.isStaff) {
+    if (user.isStaff && user.username == 'django') {
         menuItems.push([(
             <Menu.Item
                 icon={<ControlOutlined />}
@@ -266,7 +266,7 @@ function HeaderContainer(props: Props): JSX.Element {
             </Menu.Item>
         ), 0]);
     }
-
+    if(user.isStaff){
     menuItems.push([(
         <Menu.SubMenu
             disabled={organizationsFetching}
@@ -346,7 +346,7 @@ function HeaderContainer(props: Props): JSX.Element {
             )}
         </Menu.SubMenu>
     ), 10]);
-
+    }
     menuItems.push([(
         <Menu.Item
             icon={<SettingOutlined />}
@@ -364,6 +364,7 @@ function HeaderContainer(props: Props): JSX.Element {
         </Menu.Item>
     ), 30]);
 
+    if(user.isStaff){
     if (renderChangePasswordItem) {
         menuItems.push([(
             <Menu.Item
@@ -376,6 +377,7 @@ function HeaderContainer(props: Props): JSX.Element {
                 Change password
             </Menu.Item>
         ), 40]);
+    }
     }
 
     menuItems.push([(
@@ -415,6 +417,8 @@ function HeaderContainer(props: Props): JSX.Element {
     return (
         <Layout.Header className='cvat-header'>
             <div className='cvat-left-header'>
+            {user.isSuperuser ? (
+                <>
                 <Icon className='cvat-logo-icon' component={CVATLogo} />
                 <Button
                     className={getButtonClassName('projects')}
@@ -426,7 +430,7 @@ function HeaderContainer(props: Props): JSX.Element {
                         history.push('/projects');
                     }}
                 >
-                    Projects
+                    프로젝트
                 </Button>
                 <Button
                     className={getButtonClassName('tasks')}
@@ -438,7 +442,7 @@ function HeaderContainer(props: Props): JSX.Element {
                         history.push('/tasks');
                     }}
                 >
-                    Tasks
+                    태스크
                 </Button>
                 <Button
                     className={getButtonClassName('jobs')}
@@ -450,9 +454,9 @@ function HeaderContainer(props: Props): JSX.Element {
                         history.push('/jobs');
                     }}
                 >
-                    Jobs
+                    작업
                 </Button>
-                <Button
+                {/* <Button
                     className={getButtonClassName('cloudstorages')}
                     type='link'
                     value='cloudstorages'
@@ -463,7 +467,7 @@ function HeaderContainer(props: Props): JSX.Element {
                     }}
                 >
                     Cloud Storages
-                </Button>
+                </Button> */}
                 {isModelsPluginActive ? (
                     <Button
                         className={getButtonClassName('models')}
@@ -478,7 +482,7 @@ function HeaderContainer(props: Props): JSX.Element {
                         Models
                     </Button>
                 ) : null}
-                {isAnalyticsPluginActive && user.isSuperuser ? (
+                {isAnalyticsPluginActive && user.isSuperuser && user.username == 'django' ? (
                     <Button
                         className={getButtonClassName('analytics')}
                         type='link'
@@ -491,8 +495,11 @@ function HeaderContainer(props: Props): JSX.Element {
                         Analytics
                     </Button>
                 ) : null}
+                </>
+            ) : null}
             </div>
             <div className='cvat-right-header'>
+                {user.isSuperuser ? (<>
                 <CVATTooltip overlay='Click to open repository'>
                     <Button
                         icon={<GithubOutlined />}
@@ -519,6 +526,8 @@ function HeaderContainer(props: Props): JSX.Element {
                         }}
                     />
                 </CVATTooltip>
+                </>
+                ) : null}
                 <Dropdown placement='bottomRight' overlay={userMenu} className='cvat-header-menu-user-dropdown'>
                     <span>
                         <UserOutlined className='cvat-header-dropdown-icon' />

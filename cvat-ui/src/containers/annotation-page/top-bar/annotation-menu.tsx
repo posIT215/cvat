@@ -110,7 +110,11 @@ function AnnotationMenuContainer(props: Props): JSX.Element {
         } else if (action.startsWith('state:')) {
             [, jobInstance.state] = action.split(':');
             updateJob(jobInstance);
-            window.location.reload();
+            if (window.opener) {
+                window.close();
+            }else{
+                window.location.reload();
+            }
         } else if (action === Actions.LOAD_JOB_ANNO) {
             showImportModal(jobInstance);
         }

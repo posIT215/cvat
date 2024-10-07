@@ -30,7 +30,7 @@ from distutils.util import strtobool
 
 import cvat.apps.dataset_manager as dm
 from cvat.apps.engine import models
-from cvat.apps.engine.log import slogger
+from cvat.apps.engine.log import ServerLogManager
 from cvat.apps.engine.serializers import (AttributeSerializer, DataSerializer,
     JobWriteSerializer, LabelSerializer, AnnotationGuideWriteSerializer, AssetWriteSerializer,
     LabeledDataSerializer, SegmentSerializer, SimpleJobSerializer, TaskReadSerializer,
@@ -51,6 +51,10 @@ from cvat.apps.dataset_manager.bindings import CvatImportError
 
 class Version(Enum):
     V1 = '1.0'
+
+slogger = ServerLogManager(__name__)
+
+
 
 def _get_label_mapping(db_labels):
     label_mapping = {db_label.id: db_label.name for db_label in db_labels}
@@ -1028,7 +1032,7 @@ def _download_file_from_bucket(db_storage, filename, key):
 
 def _import(importer, request, queue, rq_id, Serializer, file_field_name, location_conf, filename=None):
     rq_job = queue.fetch_job(rq_id)
-
+    print('_import Start');
     if (user_id_from_meta := getattr(rq_job, 'meta', {}).get('user', {}).get('id')) and user_id_from_meta != request.user.id:
         return Response(status=status.HTTP_403_FORBIDDEN)
 
@@ -1037,47 +1041,52 @@ def _import(importer, request, queue, rq_id, Serializer, file_field_name, locati
         dependent_job = None
 
         location = location_conf.get('location')
-        if location == Location.LOCAL:
-            if not filename:
-                serializer = Serializer(data=request.data)
-                serializer.is_valid(raise_exception=True)
-                payload_file = serializer.validated_data[file_field_name]
-                with NamedTemporaryFile(
-                    prefix='cvat_',
-                    dir=settings.TMP_FILES_ROOT,
-                    delete=False) as tf:
-                    filename = tf.name
-                    for chunk in payload_file.chunks():
-                        tf.write(chunk)
+
+        import_type = request.path.strip('/').split('/')[-1]
+        if import_type == 'clone':
+            print('clone Test@@@@@@@@@@@@@@@@@@@')
         else:
-            file_name = request.query_params.get('filename')
-            assert file_name, "The filename wasn't specified"
-            try:
-                storage_id = location_conf['storage_id']
-            except KeyError:
-                raise serializers.ValidationError(
-                    'Cloud storage location was selected as the source,'
-                    ' but cloud storage id was not specified')
+            if location == Location.LOCAL:
+                if not filename:
+                    serializer = Serializer(data=request.data)
+                    serializer.is_valid(raise_exception=True)
+                    payload_file = serializer.validated_data[file_field_name]
+                    with NamedTemporaryFile(
+                        prefix='cvat_',
+                        dir=settings.TMP_FILES_ROOT,
+                        delete=False) as tf:
+                        filename = tf.name
+                        for chunk in payload_file.chunks():
+                            tf.write(chunk)
+            else:
+                file_name = request.query_params.get('filename')
+                assert file_name, "The filename wasn't specified"
+                try:
+                    storage_id = location_conf['storage_id']
+                except KeyError:
+                    raise serializers.ValidationError(
+                        'Cloud storage location was selected as the source,'
+                        ' but cloud storage id was not specified')
 
-            db_storage = get_cloud_storage_for_import_or_export(
-                storage_id=storage_id, request=request,
-                is_default=location_conf['is_default'])
+                db_storage = get_cloud_storage_for_import_or_export(
+                    storage_id=storage_id, request=request,
+                    is_default=location_conf['is_default'])
 
-            key = filename
-            with NamedTemporaryFile(prefix='cvat_', dir=settings.TMP_FILES_ROOT, delete=False) as tf:
-                filename = tf.name
+                key = filename
+                with NamedTemporaryFile(prefix='cvat_', dir=settings.TMP_FILES_ROOT, delete=False) as tf:
+                    filename = tf.name
 
-            dependent_job = configure_dependent_job(
-                queue=queue,
-                rq_id=rq_id,
-                rq_func=_download_file_from_bucket,
-                db_storage=db_storage,
-                filename=filename,
-                key=key,
-                request=request,
-                result_ttl=settings.IMPORT_CACHE_SUCCESS_TTL.total_seconds(),
-                failure_ttl=settings.IMPORT_CACHE_FAILED_TTL.total_seconds()
-            )
+                dependent_job = configure_dependent_job(
+                    queue=queue,
+                    rq_id=rq_id,
+                    rq_func=_download_file_from_bucket,
+                    db_storage=db_storage,
+                    filename=filename,
+                    key=key,
+                    request=request,
+                    result_ttl=settings.IMPORT_CACHE_SUCCESS_TTL.total_seconds(),
+                    failure_ttl=settings.IMPORT_CACHE_FAILED_TTL.total_seconds()
+                )
 
         rq_job = queue.enqueue_call(
             func=import_resource_with_clean_up_after,

@@ -570,6 +570,7 @@ class CanvasWrapperComponent extends React.PureComponent<Props> {
         const { canvasInstance } = this.props as { canvasInstance: Canvas };
 
         canvasInstance.html().removeEventListener('mousedown', this.onCanvasMouseDown);
+        canvasInstance.html().removeEventListener('mouseup', this.onCanvasMouseUp);
         canvasInstance.html().removeEventListener('click', this.onCanvasClicked);
         canvasInstance.html().removeEventListener('canvas.editstart', this.onCanvasEditStart);
         canvasInstance.html().removeEventListener('canvas.edited', this.onCanvasEditDone);
@@ -708,6 +709,16 @@ class CanvasWrapperComponent extends React.PureComponent<Props> {
         }
     };
 
+    private onCanvasMouseUp = (e: MouseEvent): void => {
+        const { workspace, activatedStateID, onActivateObject } = this.props;
+
+        if ((e.target as HTMLElement).tagName === 'svg' && e.button !== 2) {
+            if (activatedStateID !== null && workspace !== Workspace.ATTRIBUTE_ANNOTATION) {
+                onActivateObject(null, null);
+            }
+        }
+    };
+
     private onCanvasClicked = (): void => {
         const { canvasInstance } = this.props as { canvasInstance: Canvas };
         if (!canvasInstance.html().contains(document.activeElement) && document.activeElement instanceof HTMLElement) {
@@ -722,7 +733,7 @@ class CanvasWrapperComponent extends React.PureComponent<Props> {
     };
 
     private onCanvasShapeResized = (e: any): void => {
-        const { jobInstance } = this.props;
+                const { jobInstance } = this.props;
         const { id } = e.detail;
         jobInstance.logger.log(LogType.resizeObject, { id });
     };
@@ -795,7 +806,7 @@ class CanvasWrapperComponent extends React.PureComponent<Props> {
     };
 
     private onCanvasEditDone = (event: any): void => {
-        const { onEditShape, onUpdateAnnotations } = this.props;
+                const { onEditShape, onUpdateAnnotations } = this.props;
 
         onEditShape(false);
 
@@ -957,6 +968,7 @@ class CanvasWrapperComponent extends React.PureComponent<Props> {
         );
 
         canvasInstance.html().addEventListener('mousedown', this.onCanvasMouseDown);
+        canvasInstance.html().addEventListener('mouseup', this.onCanvasMouseUp);
         canvasInstance.html().addEventListener('click', this.onCanvasClicked);
         canvasInstance.html().addEventListener('canvas.editstart', this.onCanvasEditStart);
         canvasInstance.html().addEventListener('canvas.edited', this.onCanvasEditDone);

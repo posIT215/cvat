@@ -100,6 +100,7 @@ export default class IntelligentScissorsImplementation implements IntelligentSci
         const { tool, state } = scissors;
 
         const points = applyOffset(numberArrayToPoints(coordinates), offsetX, offsetY);
+        console.log(points);
         if (points.length > 1) {
             let matImage = null;
             const contour = new cv.Mat();

@@ -81,11 +81,11 @@ function ActionsMenuComponent(props: Props): JSX.Element {
     menuItems.push([(
         <Menu.Item key={Actions.LOAD_TASK_ANNO}>Upload annotations</Menu.Item>
     ), 0]);
-
+    // if(false){
     menuItems.push([(
         <Menu.Item key={Actions.EXPORT_TASK_DATASET}>Export task dataset</Menu.Item>
     ), 10]);
-
+// }
     if (bugTracker) {
         menuItems.push([(
             <Menu.Item key={Actions.OPEN_BUG_TRACKER}>Open bug tracker</Menu.Item>
@@ -98,6 +98,7 @@ function ActionsMenuComponent(props: Props): JSX.Element {
         </Menu.Item>
     ), 30]);
 
+    if(false){
     menuItems.push([(
         <Menu.Item
             key={Actions.BACKUP_TASK}
@@ -107,6 +108,7 @@ function ActionsMenuComponent(props: Props): JSX.Element {
             Backup Task
         </Menu.Item>
     ), 40]);
+}
 
     menuItems.push([(
         <Menu.Item

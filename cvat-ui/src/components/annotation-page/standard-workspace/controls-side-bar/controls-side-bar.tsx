@@ -21,6 +21,7 @@ import FitControl, { Props as FitControlProps } from './fit-control';
 import ResizeControl, { Props as ResizeControlProps } from './resize-control';
 import ToolsControl from './tools-control';
 import OpenCVControl from './opencv-control';
+import DrawFitRectangleControl, { Props as DrawFitRectangleControlProps } from './draw-fit-rectangle-control';
 import DrawRectangleControl, { Props as DrawRectangleControlProps } from './draw-rectangle-control';
 import DrawPolygonControl, { Props as DrawPolygonControlProps } from './draw-polygon-control';
 import DrawPolylineControl, { Props as DrawPolylineControlProps } from './draw-polyline-control';
@@ -59,6 +60,7 @@ const ObservedMoveControl = ControlVisibilityObserver<MoveControlProps>(MoveCont
 const ObservedRotateControl = ControlVisibilityObserver<RotateControlProps>(RotateControl);
 const ObservedFitControl = ControlVisibilityObserver<FitControlProps>(FitControl);
 const ObservedResizeControl = ControlVisibilityObserver<ResizeControlProps>(ResizeControl);
+const ObservedDrawFitRectangleControl = ControlVisibilityObserver(DrawFitRectangleControl);
 const ObservedToolsControl = ControlVisibilityObserver(ToolsControl);
 const ObservedOpenCVControl = ControlVisibilityObserver(OpenCVControl);
 const ObservedDrawRectangleControl = ControlVisibilityObserver<DrawRectangleControlProps>(DrawRectangleControl);
@@ -152,6 +154,7 @@ export default function ControlsSideBarComponent(props: Props): JSX.Element {
                 pasteShape();
             },
             SWITCH_DRAW_MODE: (event: KeyboardEvent | undefined) => {
+
                 preventDefault(event);
                 const drawing = [
                     ActiveControl.DRAW_POINTS,
@@ -164,6 +167,7 @@ export default function ControlsSideBarComponent(props: Props): JSX.Element {
                     ActiveControl.DRAW_MASK,
                     ActiveControl.AI_TOOLS,
                     ActiveControl.OPENCV_TOOLS,
+                    ActiveControl.FIT_RECTANGLE,
                 ].includes(activeControl);
                 const editing = canvasInstance.mode() === CanvasMode.EDIT;
 
@@ -185,7 +189,8 @@ export default function ControlsSideBarComponent(props: Props): JSX.Element {
                         repeatDrawShape();
                     }
                 } else {
-                    if ([ActiveControl.AI_TOOLS, ActiveControl.OPENCV_TOOLS].includes(activeControl)) {
+                    if ([ActiveControl.AI_TOOLS, ActiveControl.OPENCV_TOOLS,
+                        ActiveControl.FIT_RECTANGLE].includes(activeControl)) {
                         // separated API method
                         canvasInstance.interact({ enabled: false });
                         return;
@@ -223,8 +228,7 @@ export default function ControlsSideBarComponent(props: Props): JSX.Element {
             <ObservedResizeControl canvasInstance={canvasInstance} activeControl={activeControl} />
 
             <hr />
-            <ObservedToolsControl />
-            <ObservedOpenCVControl />
+            <ObservedDrawFitRectangleControl/>
             {
                 rectangleControlVisible && (
                     <ObservedDrawRectangleControl

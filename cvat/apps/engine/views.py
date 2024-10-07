@@ -6,6 +6,11 @@
 import io
 import os
 import os.path as osp
+from .backup import TaskExporter, TaskImporter
+import shutil
+import tempfile
+from zipfile import ZipFile
+from django.core.files import File
 from PIL import Image
 from types import SimpleNamespace
 from typing import Optional
@@ -82,7 +87,7 @@ from cvat.apps.engine.mixins import PartialUpdateModelMixin, UploadMixin, Annota
 from cvat.apps.engine.location import get_location_configuration, StorageType
 
 from . import models, task
-from .log import slogger
+from .log import ServerLogManager
 from cvat.apps.iam.permissions import (CloudStoragePermission,
     CommentPermission, IssuePermission, JobPermission, LabelPermission, ProjectPermission,
     TaskPermission, UserPermission)
@@ -92,6 +97,7 @@ from cvat.apps.engine.view_utils import tus_chunk_action
 
 
 _UPLOAD_PARSER_CLASSES = api_settings.DEFAULT_PARSER_CLASSES + [MultiPartParser]
+slogger = ServerLogManager(__name__)
 
 @extend_schema(tags=['server'])
 class ServerViewSet(viewsets.ViewSet):
@@ -875,6 +881,51 @@ class TaskViewSet(viewsets.GenericViewSet, mixins.ListModelMixin,
     @action(methods=['GET'], detail=True, url_path='backup')
     def export_backup(self, request, pk=None):
         return self.serialize(request, backup.export)
+
+    @extend_schema(summary='테스트 클론 API',
+        responses={
+            '500': OpenApiResponse(description='Internal Server Error'),
+            '201': OpenApiResponse(description='태스크 복사 성공'),
+            '404': OpenApiResponse(description='Task Not Found'),
+        })
+    @action(detail=True, methods=['OPTIONS', 'POST'], url_path=r'clone/?$')
+    def clone_task(self, request, pk=None):
+
+        try:
+            original_task = Task.objects.get(pk=pk)
+            user = request.user
+
+            with transaction.atomic():
+                # Step 1: 기존 태스크 백업
+                try:
+                    # 백업 파일 생성
+                    print("백업 파일 생성")
+                    with NamedTemporaryFile(
+                        prefix='cvat_',
+                        dir=settings.TMP_FILES_ROOT,
+                        delete=False) as temp_file:
+                    # with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
+                        temp_file_path = temp_file.name
+                        print("임시 파일 경로 : ", temp_file_path)
+                        print("TaskExporter를 이용해 백업 수행")
+                        # TaskExporter를 이용해 백업 수행
+                        exporter = TaskExporter(original_task.pk)
+                        exporter.export_to(temp_file_path)
+
+                    with ZipFile(temp_file_path, 'r') as input_file:
+                        print(input_file)
+                except Exception as e:
+                    print(f"백업 실패: {e}")
+                    return Response({'error': 'Failed to backup the original task.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+            return backup.import_task(
+                request,
+                queue_name=settings.CVAT_QUEUES.IMPORT_DATA.value,
+                filename=temp_file_path)
+        except Exception as e:
+            print(f"백업 실패: {e}")
+            return Response({'error': 'Failed to backup the original task.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @transaction.atomic
     def perform_update(self, serializer):

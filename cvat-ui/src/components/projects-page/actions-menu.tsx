@@ -46,18 +46,20 @@ function ProjectActionsMenuComponent(props: Props): JSX.Element {
     }, []);
 
     const menuItems: [JSX.Element, number][] = [];
+    // if(false){
     menuItems.push([(
         <Menu.Item key='export-dataset' onClick={() => dispatch(exportActions.openExportDatasetModal(projectInstance))}>
             Export dataset
         </Menu.Item>
     ), 0]);
-
+    // }
     menuItems.push([(
         <Menu.Item key='import-dataset' onClick={() => dispatch(importActions.openImportDatasetModal(projectInstance))}>
             Import dataset
         </Menu.Item>
     ), 10]);
 
+    if(false){
     menuItems.push([(
         <Menu.Item
             key='backup-project'
@@ -68,6 +70,7 @@ function ProjectActionsMenuComponent(props: Props): JSX.Element {
             Backup Project
         </Menu.Item>
     ), 20]);
+    }
 
     menuItems.push([(
         <Menu.Item key='view-analytics'>

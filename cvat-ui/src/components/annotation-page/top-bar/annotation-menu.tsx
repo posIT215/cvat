@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { withRouter, RouteComponentProps } from 'react-router';
+import Axios from 'axios';
 
 import Menu from 'antd/lib/menu';
 import Modal from 'antd/lib/modal';
@@ -185,8 +186,8 @@ function AnnotationMenuComponent(props: Props & RouteComponentProps): JSX.Elemen
     return (
         <Menu onClick={(params: MenuInfo) => onClickMenuWrapper(params)} className='cvat-annotation-menu' selectable={false}>
             <Menu.Item key={Actions.LOAD_JOB_ANNO}>Upload annotations</Menu.Item>
-            <Menu.Item key={Actions.EXPORT_JOB_DATASET}>Export job dataset</Menu.Item>
-            <Menu.Item key={Actions.REMOVE_ANNO}>Remove annotations</Menu.Item>
+            {/* <Menu.Item key={Actions.EXPORT_JOB_DATASET}>Export job dataset</Menu.Item>
+
             <Menu.Item key={Actions.OPEN_TASK}>
                 <a
                     href={`/tasks/${taskID}`}
@@ -198,7 +199,8 @@ function AnnotationMenuComponent(props: Props & RouteComponentProps): JSX.Elemen
                 >
                     Open the task
                 </a>
-            </Menu.Item>
+            </Menu.Item> */}
+            <Menu.Item key={Actions.REMOVE_ANNO}>Remove annotations</Menu.Item>
             <Menu.SubMenu popupClassName='cvat-annotation-menu-job-state-submenu' key='job-state-submenu' title='Change job state'>
                 <Menu.Item key={`state:${JobState.NEW}`}>
                     <Text className={computeClassName(JobState.NEW)}>{JobState.NEW}</Text>

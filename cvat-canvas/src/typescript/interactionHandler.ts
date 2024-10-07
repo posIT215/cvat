@@ -167,13 +167,13 @@ export class InteractionHandlerImpl implements InteractionHandler {
                         r: this.controlPointsSize / this.geometry.scale,
                     });
 
-                    self.off('mousedown');
+                    self.off('mousedown mouseup');
                 });
             }
         };
 
         // clear this listener in release()
-        this.canvas.on('mousedown.interaction', eventListener);
+        this.canvas.on('mousedown.interaction mouseup.interaction', eventListener);
     }
 
     private interactRectangle(shouldFinish: boolean, onContinue?: () => void): void {
@@ -190,10 +190,10 @@ export class InteractionHandlerImpl implements InteractionHandler {
         };
 
         this.currentInteractionShape = this.canvas.rect();
-        this.canvas.on('mousedown.interaction', eventListener);
+        this.canvas.on('mousedown.interaction mouseup.interaction', eventListener);
         this.currentInteractionShape
             .on('drawstop', (): void => {
-                this.canvas.off('mousedown.interaction', eventListener);
+                this.canvas.off('mousedown.interaction mouseup.interaction', eventListener);
                 this.interactionShapes.push(this.currentInteractionShape);
                 this.shapesWereUpdated = true;
 
@@ -254,7 +254,7 @@ export class InteractionHandlerImpl implements InteractionHandler {
             this.threshold = null;
         }
 
-        this.canvas.off('mousedown.interaction');
+        this.canvas.off('mousedown.interaction mouseup.interaction');
         this.interactionShapes.forEach((shape: SVG.Shape): SVG.Shape => shape.remove());
         this.interactionShapes = [];
         if (this.currentInteractionShape) {

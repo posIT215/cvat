@@ -371,7 +371,7 @@ export class DrawHandlerImpl implements DrawHandler {
 
         this.autoborderHandler.autoborder(false);
         this.initialized = false;
-        this.canvas.off('mousedown.draw');
+        this.canvas.off('mousedown.draw mouseup.draw');
         this.canvas.off('mousemove.draw');
 
         // Draw plugin in some cases isn't activated
@@ -1149,7 +1149,7 @@ export class DrawHandlerImpl implements DrawHandler {
     private setupDrawEvents(): void {
         let initialized = false;
 
-        this.canvas.on('mousedown.draw', (e: MouseEvent): void => {
+        this.canvas.on('mousedown.draw mouseup.draw', (e: MouseEvent): void => {
             if (e.button === 0 && !e.altKey) {
                 if (!initialized) {
                     this.drawInstance.draw(e, { snapToGrid: 0.1 });

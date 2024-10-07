@@ -7,7 +7,9 @@ import { getCore } from 'cvat-core-wrapper';
 import HistogramEqualizationImplementation, { HistogramEqualization } from './histogram-equalization';
 import TrackerMImplementation from './tracker-mil';
 import IntelligentScissorsImplementation, { IntelligentScissors } from './intelligent-scissors';
+import BoxFittingImplementation, { BoxFitting } from './box-fitting';
 import { OpenCVTracker } from './opencv-interfaces';
+
 
 const core = getCore();
 const baseURL = core.config.backendAPI.slice(0, -7);
@@ -15,6 +17,11 @@ const baseURL = core.config.backendAPI.slice(0, -7);
 export interface Segmentation {
     intelligentScissorsFactory: (onChangeToolsBlockerState:(event:string)=>void) => IntelligentScissors;
 }
+
+export interface Fitting {
+    boxFittingFactory: (onChangeToolsBlockerState:(event:string)=>void) => BoxFitting;
+}
+
 
 export interface MatSpace {
     empty: () => any;
@@ -28,6 +35,8 @@ export interface MatVectorSpace {
 export interface Contours {
     findContours: (src: any, contours: any) => number[][];
     approxPoly: (points: number[] | any, threshold: number, closed?: boolean) => number[][];
+    fitting: (points: number[] | any, threshold: number, imageData : any , closed?: boolean) => number[];
+    getcCv: () => any;
 }
 
 export interface ImgProc {
@@ -204,6 +213,194 @@ export class OpenCVWrapper {
                     contour.delete();
                 }
             },
+
+            fitting: (points: number[] , threshold: number, imageData : any,closed = true): number[] => {
+
+
+                let mat = new cv.matFromImageData(imageData);
+                //let mat = new cv.Mat(imageData.height, imageData.width, cv.CV_8UC4);
+                //mat.data.set(imageData.data);
+
+
+                // 이미지를 그레이스케일로 변환
+                let grayMat = new cv.Mat();
+                cv.cvtColor(mat, grayMat, cv.COLOR_BGR2GRAY);
+
+                // 이진화 (임계값 설정)
+                let thresholdValue = 127;
+                let binaryMat = new cv.Mat();
+                cv.threshold(grayMat, binaryMat, thresholdValue, 255, cv.THRESH_BINARY_INV);
+
+                let [x1, y1, x2, y2] = points;
+                let region = binaryMat.roi(new cv.Rect(x1, y1, x2 - x1, y2 - y1));
+                let fittedBoxes: number[][] = [];
+                // 텍스트가 있는 가장자리를 찾기
+                let rows = new cv.Mat();
+                cv.reduce(region, rows, 0, cv.REDUCE_MAX, cv.CV_8U);
+                let cols = new cv.Mat();
+                cv.reduce(region, cols, 1, cv.REDUCE_MAX, cv.CV_8U);
+
+                let rowsData = new Uint8Array(rows.data);
+                let colsData = new Uint8Array(cols.data);
+
+
+                let rowsIndices: number[] = [];
+                let colsIndices: number[] = [];
+
+                for (let i = 0; i < rowsData.length; i++) {
+                    if (rowsData[i] > 0) {
+                        rowsIndices.push(i);
+                    }
+                }
+
+                for (let i = 0; i < colsData.length; i++) {
+                    if (colsData[i] > 0) {
+                        colsIndices.push(i);
+                    }
+                }
+
+                if (rowsIndices.length > 0 && colsIndices.length > 0) {
+                    let x1New = rowsIndices[0];
+                    let x2New = rowsIndices[rowsIndices.length - 1];
+                    let y1New = colsIndices[0];
+                    let y2New = colsIndices[colsIndices.length - 1];
+
+                    // 너무 딱 붙으면 짤리기 때문에, 적당히 박스를 띄어줌
+                    let fittedX1 = x1 + x1New - 1;
+                    let fittedY1 = y1 + y1New - 1;
+                    let fittedX2 = x1 + x2New + 1;
+                    let fittedY2 = y1 + y2New + 1;
+
+                    fittedBoxes.push([fittedX1, fittedY1, fittedX2, fittedY2]);
+                } else {
+                    fittedBoxes.push([x1, y1, x2, y2]);
+                }
+
+                let refinedBoxes: number[][] = [];
+
+                let continuousLimit = 10;
+                let thresholded = binaryMat;
+                for (let box of fittedBoxes) {
+                    let [x1, y1, x2, y2] = box;
+
+                    // 위 경계 재조정
+                    for (let i = y1; i > 0; i--) {
+                        let sum = 0;
+                        for (let x = x1; x < x2; x++) {
+                            sum += binaryMat.ucharAt(i, x);
+                        }
+                        if (sum === 0) {
+                            break;
+                        }
+                        y1 = i;
+                    }
+
+                    // 아래 경계 재조정
+                    for (let i = y2; i < binaryMat.rows; i++) {
+                        let sum = 0;
+                        for (let x = x1; x < x2; x++) {
+                            sum += binaryMat.ucharAt(i, x);
+                        }
+                        if (sum === 0) {
+                            break;
+                        }
+                        y2 = i;
+                    }
+
+                    // 좌측 경계 재조정
+                    for (let i = x1; i > 0; i--) {
+                        let sum = 0;
+                        for (let y = y1; y < y2; y++) {
+                            sum += binaryMat.ucharAt(y, i);
+                        }
+                        if (sum === 0) {
+                            let continuousBlack = 0;
+                            for (let j = 1; j < continuousLimit; j++) {
+                                let innerSum = 0;
+                                for (let y = y1; y < y2; y++) {
+                                    innerSum += binaryMat.ucharAt(y, i - j);
+                                }
+                                if (i - j >= 0 && innerSum === 0) {
+                                    continuousBlack += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if (continuousBlack === continuousLimit - 1) {
+                                break;
+                            }
+                        }
+                        x1 = i;
+                    }
+
+                    // 우측 경계 재조정
+                    for (let i = x2; i < binaryMat.cols; i++) {
+                        let sum = 0;
+                        for (let y = y1; y < y2; y++) {
+                            sum += binaryMat.ucharAt(y, i);
+                        }
+                        if (sum === 0) {
+                            let continuousBlack = 0;
+                            for (let j = 1; j < continuousLimit; j++) {
+                                let innerSum = 0;
+                                for (let y = y1; y < y2; y++) {
+                                    innerSum += binaryMat.ucharAt(y, i + j);
+                                }
+                                if (i + j < binaryMat.cols && innerSum === 0) {
+                                    continuousBlack += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if (continuousBlack === continuousLimit - 1) {
+                                break;
+                            }
+                        }
+                        x2 = i;
+                    }
+
+                    for (let i = x2; i < thresholded.cols; i++) {
+                        let sum = 0;
+                        for (let y = y1; y < y2; y++) {
+                            sum += thresholded.ucharAt(y, i);
+                        }
+                        if (sum === 0) {
+                            let continuousBlack = 0;
+                            for (let j = 1; j < continuousLimit; j++) {
+                                let innerSum = 0;
+                                for (let y = y1; y < y2; y++) {
+                                    innerSum += thresholded.ucharAt(y, i + j);
+                                }
+                                if (i + j < thresholded.cols && innerSum === 0) {
+                                    continuousBlack += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if (continuousBlack === continuousLimit - 1) {
+                                break;
+                            }
+                        }
+                        x2 = i;
+                    }
+
+                    refinedBoxes.push([x1, y1, x2, y2]);
+                }
+
+
+                let fittedRectangle = refinedBoxes[0];
+
+                if (mat) {
+                    mat.delete();
+                }
+                region.delete();
+                grayMat.delete();
+                // thresholded.delete();
+                binaryMat.delete();
+                rows.delete();
+                cols.delete();
+                return fittedRectangle;
+            },
         };
     }
 
@@ -213,6 +410,15 @@ export class OpenCVWrapper {
             intelligentScissorsFactory:
             (onChangeToolsBlockerState:
             (event:string)=>void) => new IntelligentScissorsImplementation(this.cv, onChangeToolsBlockerState),
+        };
+    }
+
+    public get fitting(): Fitting {
+        this.checkInitialization();
+        return {
+            boxFittingFactory:
+            (onChangeToolsBlockerState:
+            (event:string)=>void) => new BoxFittingImplementation(this.cv, onChangeToolsBlockerState),
         };
     }
 

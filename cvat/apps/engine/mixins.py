@@ -20,12 +20,14 @@ from rest_framework import mixins, status
 from rest_framework.response import Response
 
 from cvat.apps.engine.location import StorageType, get_location_configuration
-from cvat.apps.engine.log import slogger
+from cvat.apps.engine.log import ServerLogManager
 from cvat.apps.engine.models import Location
 from cvat.apps.engine.serializers import DataSerializer
 from cvat.apps.engine.handlers import clear_import_cache
 from cvat.apps.engine.utils import get_import_rq_id
 
+
+slogger = ServerLogManager(__name__)
 
 class TusFile:
     @dataclass
@@ -256,6 +258,8 @@ class UploadMixin:
                 with NamedTemporaryFile(prefix=f'cvat-backup-{filename}-by-{request.user}', suffix='.zip', dir=self.get_upload_dir()) as tmp_file:
                     filename = os.path.relpath(tmp_file.name, self.get_upload_dir())
                 metadata['filename'] = filename
+            elif import_type == 'clone':
+                print('클론 데이터 테이슽@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ')
             file_path = os.path.join(self.get_upload_dir(), filename)
             file_exists = os.path.lexists(file_path) and import_type != 'backup'
 

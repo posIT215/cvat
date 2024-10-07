@@ -159,6 +159,7 @@ export enum ModelKind {
 
 export enum ModelProviders {
     CVAT = 'cvat',
+    ROBOFLOW = 'roboflow',
 }
 
 export enum ModelReturnType {
